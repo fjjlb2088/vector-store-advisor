@@ -1,0 +1,7 @@
+.DS_Store
+.kiro/settings/
+S3同步.zip
+~/
+download-from-s3.ps1
+start-download.bat
+README-Windows下载说明.md
