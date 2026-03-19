@@ -1,7 +1,3 @@
----
-inclusion: manual
----
-
 # AWS 托管向量存储选型顾问 (Vector Store Advisor)
 
 ## 技能描述
