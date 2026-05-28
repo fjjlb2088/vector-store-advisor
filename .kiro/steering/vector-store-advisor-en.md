@@ -37,11 +37,16 @@ Ask the user which category their customer's business scenario falls into:
 
 **Scenario 1 - Agentic Memory:**
 Ask which AI Agent framework the customer is currently using:
-- Mem0 → Candidates: ElastiCache, MemoryDB, S3 Vectors
-- LangGraph → Candidates: ElastiCache, AgentCore Memory
-- Strands Agents → Candidates: ElastiCache, MemoryDB, AgentCore Memory
-- LangChain → Candidates: DocumentDB
+- Mem0 → Candidates: Aurora PostgreSQL (pgvector), OpenSearch, ElastiCache/MemoryDB (Valkey), S3 Vectors, Neptune Analytics
+- LangGraph → Checkpoint layer: Bedrock AgentCore Memory, DynamoDB (+S3), ElastiCache (Valkey); Semantic retrieval uses LangChain vector store → indirectly supports OpenSearch/Aurora/DocumentDB
+- Strands Agents → Candidates: Bedrock AgentCore Memory, OpenSearch (via mem0 backend), S3 Vectors (community plugin)
+- LangChain → Candidates: OpenSearch, DocumentDB, MemoryDB, ElastiCache (Valkey), Aurora PostgreSQL (pgvector), Bedrock AgentCore Memory
+- Customer uses Mem0 → Recommend Aurora PostgreSQL/OpenSearch/ElastiCache (all officially supported)
+- Customer uses Strands → Recommend AgentCore Memory/OpenSearch
+- Customer uses LangChain → Recommend OpenSearch (first-class integration)
+- Customer uses LangGraph → Checkpoint: DynamoDB/AgentCore Memory; Vector retrieval: pair with LangChain using OpenSearch/Aurora
 - If the customer does not plan to switch frameworks, the candidate vector stores can be narrowed down based on their current framework
+- Reference docs: Mem0(docs.mem0.ai/components/vectordbs/overview), LangGraph(pypi.org/project/langgraph-checkpoint-aws/), Strands(strandsagents.com/docs/community/plugins/s3-vectors-memory/), LangChain(python.langchain.com/docs/integrations/providers/aws/)
 
 **Scenario 2 - Knowledge Base:**
 Ask about the knowledge retrieval type:
