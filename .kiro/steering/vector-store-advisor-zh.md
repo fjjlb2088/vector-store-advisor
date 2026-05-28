@@ -37,11 +37,16 @@ inclusion: manual
 
 **场景 1 - Agentic Memory：**
 询问客户当前使用的 AI Agent 框架：
-- Mem0 → 备选：ElastiCache, MemoryDB, S3 Vectors
-- LangGraph → 备选：ElastiCache, AgentCore Memory
-- Strands Agents → 备选：ElastiCache, MemoryDB, AgentCore Memory
-- LangChain → 备选：DocumentDB
+- Mem0 → 备选：Aurora PostgreSQL (pgvector)、OpenSearch、ElastiCache/MemoryDB (Valkey)、S3 Vectors、Neptune Analytics
+- LangGraph → checkpoint层：Bedrock AgentCore Memory、DynamoDB (+S3)、ElastiCache (Valkey)；语义检索走 LangChain vector store → 间接支持 OpenSearch/Aurora/DocumentDB
+- Strands Agents → 备选：Bedrock AgentCore Memory、OpenSearch (via mem0 backend)、S3 Vectors (community plugin)
+- LangChain → 备选：OpenSearch、DocumentDB、MemoryDB、ElastiCache (Valkey)、Aurora PostgreSQL (pgvector)、Bedrock AgentCore Memory
+- 客户用 Mem0 → 首推 Aurora PostgreSQL/OpenSearch/ElastiCache（均官方支持）
+- 客户用 Strands → 首推 AgentCore Memory/OpenSearch
+- 客户用 LangChain → 首推 OpenSearch（first-class integration）
+- 客户用 LangGraph → checkpoint 用 DynamoDB/AgentCore Memory；向量检索用 LangChain + OpenSearch/Aurora
 - 如果客户不打算更换框架，那么依据当前客户正在使用的框架可以筛选出备选的向量数据存储
+- 参考文档：Mem0(docs.mem0.ai/components/vectordbs/overview)、LangGraph(pypi.org/project/langgraph-checkpoint-aws/)、Strands(strandsagents.com/docs/community/plugins/s3-vectors-memory/)、LangChain(python.langchain.com/docs/integrations/providers/aws/)
 
 **场景 2 - 知识库：**
 询问知识检索类型：
