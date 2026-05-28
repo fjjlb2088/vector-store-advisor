@@ -49,16 +49,36 @@ AWS 向量数据存储选型顾问。通过三阶段决策流程（场景选型�
 - **On failure**: 进入第二阶段继续筛选
 
 根据场景提问：
-- Agentic Memory → 询问 Agent 框架（Mem0/LangGraph/Strands/LangChain）
+- Agentic Memory → 询问 Agent 框架，按下表匹配推荐
 - 知识库 → 文本检索(OpenSearch) / GraphRAG(Neptune) / 其他(OpenSearch/Aurora/DocumentDB)
 - 多模态 → toC多租户隔离(S3 Vectors) / 通用(OpenSearch/Aurora)
 - LLM缓存 → 直接推荐 ElastiCache
 - 其他 → 按现有数据位置和功能需求筛选
 
+Agent 框架兼容性矩阵：
+| 框架 | 支持的 AWS 托管存储 |
+|------|-------------------|
+| Mem0 | Aurora PostgreSQL (pgvector)、OpenSearch、ElastiCache/MemoryDB (Valkey)、S3 Vectors、Neptune Analytics |
+| LangGraph | Bedrock AgentCore Memory、DynamoDB (+S3 offloading)、ElastiCache (Valkey)；语义检索走 LangChain vector store 层 → 间接支持 OpenSearch/Aurora/DocumentDB 等 |
+| Strands Agents | Bedrock AgentCore Memory、OpenSearch (via mem0 backend)、S3 Vectors (community plugin) |
+| LangChain | OpenSearch、DocumentDB、MemoryDB、ElastiCache (Valkey)、Aurora PostgreSQL (pgvector)、Bedrock AgentCore Memory |
+
+参考文档：
+- Mem0: https://docs.mem0.ai/components/vectordbs/overview
+- LangGraph: https://pypi.org/project/langgraph-checkpoint-aws/ + https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-integrate-lang.html
+- Strands: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/strands-sdk-memory.html + https://strandsagents.com/docs/community/plugins/s3-vectors-memory/
+- LangChain: https://python.langchain.com/docs/integrations/providers/aws/
+
+注意：LangGraph checkpoint 层做状态持久化（DynamoDB/Valkey/AgentCore），不直接涉及 vector store。当 LangGraph 需要 semantic memory retrieval 时，走 LangChain vector store 层，因此间接支持 OpenSearch、Aurora pgvector、DocumentDB 等。
+
 一票否决/一票决定规则：
 - 需要 GraphRAG → 必选 Neptune Analytics
 - toC 上万租户物理隔离 → 必选 S3 Vectors
 - 特定 Agent 框架绑定 → 按框架兼容列表
+- 客户用 Mem0 → 首推 Aurora PostgreSQL/OpenSearch/ElastiCache（均官方支持）
+- 客户用 Strands → 首推 AgentCore Memory/OpenSearch
+- 客户用 LangChain → 首推 OpenSearch（first-class integration，Python+JS）
+- 客户用 LangGraph → checkpoint 用 DynamoDB/AgentCore Memory；向量检索推荐配合 LangChain 用 OpenSearch/Aurora
 
 ### Step 3: 性能与数据特征选型
 - **Mode**: `agentic`
