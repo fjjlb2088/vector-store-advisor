@@ -49,16 +49,36 @@ Ask business scenario:
 - **On failure**: Proceed to Phase 2 for further filtering
 
 Follow-up by scenario:
-- Agentic Memory → Ask Agent framework (Mem0/LangGraph/Strands/LangChain)
+- Agentic Memory → Ask Agent framework, match using the compatibility matrix below
 - Knowledge Base → Text retrieval(OpenSearch) / GraphRAG(Neptune) / Other(OpenSearch/Aurora/DocumentDB)
 - Multi-modal → toC multi-tenant isolation(S3 Vectors) / General(OpenSearch/Aurora)
 - LLM Cache → Directly recommend ElastiCache
 - Other → Filter by existing data location and functional requirements
 
+Agent Framework Compatibility Matrix:
+| Framework | Supported AWS Managed Stores |
+|-----------|----------------------------|
+| Mem0 | Aurora PostgreSQL (pgvector), OpenSearch, ElastiCache/MemoryDB (Valkey), S3 Vectors, Neptune Analytics |
+| LangGraph | Bedrock AgentCore Memory, DynamoDB (+S3 offloading), ElastiCache (Valkey); for semantic retrieval uses LangChain vector store layer → indirectly supports OpenSearch/Aurora/DocumentDB etc. |
+| Strands Agents | Bedrock AgentCore Memory, OpenSearch (via mem0 backend), S3 Vectors (community plugin) |
+| LangChain | OpenSearch, DocumentDB, MemoryDB, ElastiCache (Valkey), Aurora PostgreSQL (pgvector), Bedrock AgentCore Memory |
+
+Reference Documentation:
+- Mem0: https://docs.mem0.ai/components/vectordbs/overview
+- LangGraph: https://pypi.org/project/langgraph-checkpoint-aws/ + https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-integrate-lang.html
+- Strands: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/strands-sdk-memory.html + https://strandsagents.com/docs/community/plugins/s3-vectors-memory/
+- LangChain: https://python.langchain.com/docs/integrations/providers/aws/
+
+Note: LangGraph's checkpoint layer handles state persistence (DynamoDB/Valkey/AgentCore), not vector search directly. When LangGraph needs semantic memory retrieval, it uses LangChain's vector store layer — thus indirectly supporting OpenSearch, Aurora pgvector, DocumentDB, etc.
+
 Veto/Override rules:
 - Needs GraphRAG → Must choose Neptune Analytics
 - toC 10K+ tenants need physical isolation → Must choose S3 Vectors
 - Specific Agent framework binding → Filter by framework compatibility
+- Customer uses Mem0 → Recommend Aurora PostgreSQL/OpenSearch/ElastiCache (all officially supported)
+- Customer uses Strands → Recommend AgentCore Memory/OpenSearch
+- Customer uses LangChain → Recommend OpenSearch (first-class integration, Python+JS)
+- Customer uses LangGraph → Checkpoint: DynamoDB/AgentCore Memory; Vector retrieval: pair with LangChain using OpenSearch/Aurora
 
 ### Step 3: Performance & Data Characteristics
 - **Mode**: `agentic`
