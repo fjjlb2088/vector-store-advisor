@@ -46,7 +46,7 @@ inclusion: manual
 - 客户用 LangChain → 首推 OpenSearch（first-class integration）
 - 客户用 LangGraph → checkpoint 用 DynamoDB/AgentCore Memory；向量检索用 LangChain + OpenSearch/Aurora
 - 如果客户不打算更换框架，那么依据当前客户正在使用的框架可以筛选出备选的向量数据存储
-- 参考文档：Mem0(docs.mem0.ai/components/vectordbs/overview)、LangGraph(pypi.org/project/langgraph-checkpoint-aws/)、Strands(strandsagents.com/docs/community/plugins/s3-vectors-memory/)、LangChain(python.langchain.com/docs/integrations/providers/aws/)
+- 框架支持的向量存储在不断变化中，可以参考以下文档：Mem0(docs.mem0.ai/components/vectordbs/overview)、LangGraph(pypi.org/project/langgraph-checkpoint-aws/)、Strands(strandsagents.com/docs/community/plugins/s3-vectors-memory/)、LangChain(python.langchain.com/docs/integrations/providers/aws/)
 
 **场景 2 - 知识库：**
 询问知识检索类型：
