@@ -46,7 +46,7 @@ Ask which AI Agent framework the customer is currently using:
 - Customer uses LangChain → Recommend OpenSearch (first-class integration)
 - Customer uses LangGraph → Checkpoint: DynamoDB/AgentCore Memory; Vector retrieval: pair with LangChain using OpenSearch/Aurora
 - If the customer does not plan to switch frameworks, the candidate vector stores can be narrowed down based on their current framework
-- Reference docs: Mem0(docs.mem0.ai/components/vectordbs/overview), LangGraph(pypi.org/project/langgraph-checkpoint-aws/), Strands(strandsagents.com/docs/community/plugins/s3-vectors-memory/), LangChain(python.langchain.com/docs/integrations/providers/aws/)
+- Framework-supported vector stores are constantly evolving. Reference docs: Mem0(docs.mem0.ai/components/vectordbs/overview), LangGraph(pypi.org/project/langgraph-checkpoint-aws/), Strands(strandsagents.com/docs/community/plugins/s3-vectors-memory/), LangChain(python.langchain.com/docs/integrations/providers/aws/)
 
 **Scenario 2 - Knowledge Base:**
 Ask about the knowledge retrieval type:
