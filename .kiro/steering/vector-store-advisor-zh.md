@@ -78,11 +78,39 @@ inclusion: manual
 - toC 上万租户需要物理数据隔离 → 必选 S3 Vectors
 - 特定 Agent 框架绑定 → 按框架支持列表筛选
 
+### 步骤 3：索引算法与距离度量筛选（一票否决）
+
+询问客户对向量索引算法和距离度量的要求：
+- 索引算法：HNSW / IVF / Flat（暴力精确搜索）
+- 距离度量：L2 (Euclidean) / Cosine / Inner Product (Dot Product) / L1 / Hamming
+- 如果不确定，默认推荐 HNSW + Cosine（最通用组合）
+
+索引算法×距离度量支持矩阵（一票否决依据）：
+| 向量存储 | HNSW+L2 | HNSW+Cosine | HNSW+IP | HNSW+L1 | HNSW+Hamming | IVF+L2 | IVF+Cosine | IVF+IP | IVF+Hamming | Flat+L2 | Flat+Cosine | Flat+IP |
+|---------|---------|-------------|---------|---------|-------------|--------|-----------|--------|------------|---------|------------|---------
+| Aurora PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| OpenSearch | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| DocumentDB | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| ElastiCache | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| MemoryDB | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Neptune Analytics | ✅(L2Sq) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+筛选规则：
+- 查表确认客户要求的组合，❌ 的服务直接排除
+- 如果客户不确定，默认使用 HNSW+Cosine → 排除 Neptune Analytics（不支持 Cosine）
+- 如果客户明确需要 IVF 索引 → 排除 ElastiCache、MemoryDB、Neptune Analytics（不支持 IVF）
+- 如果客户需要 Hamming 距离 → 仅 Aurora PostgreSQL（HNSW）和 OpenSearch（HNSW+IVF）支持
+- Neptune Analytics 仅支持 HNSW+L2Squared，任何其他组合均不支持
+
+注意：
+- S3 Vectors 和 AgentCore Memory 为托管服务，索引算法和距离度量由服务内部决定，不在此表范围
+- 此步骤为一票否决，仅用于排除不支持的服务，不用于正向推荐
+
 ## 第二阶段：性能和数据特征选型
 
 当第一阶段筛选后仍有多个候选时，进入此阶段。
 
-### 步骤 3：收集数据特征
+### 步骤 4：收集数据特征
 
 询问以下信息：
 - 向量维度（如 384, 768, 1024, 1536）
@@ -90,7 +118,7 @@ inclusion: manual
 - 数据集总大小
 - 需要使用的 Index Type 以及最大维度
 
-### 步骤 4：收集性能要求
+### 步骤 5：收集性能要求
 
 询问以下信息：
 - 查询 QPS 要求
@@ -167,7 +195,7 @@ inclusion: manual
 
 当第二阶段筛选后仍有多个候选时，进入此阶段。
 
-### 步骤 5：收集成本相关信息
+### 步骤 6：收集成本相关信息
 
 询问以下信息：
 - 负载是否有明显波峰波谷？（考虑 Serverless）
@@ -233,6 +261,11 @@ inclusion: manual
 - 关键性能指标匹配情况
 - 预估月度成本范围
 - 注意事项和建议
+
+
+如果经过所有步骤筛选后，没有任何 AWS 托管向量存储满足客户全部需求，则输出"无推荐报告"：
+- 逐一列出每种托管向量存储不符合要求的具体原因
+- 建议客户考虑 AWS Marketplace 上的向量数据库产品（如 Pinecone、Milvus、Weaviate 等），具体请咨询 SSA 团队
 
 ## 交互流程指引
 
@@ -329,3 +362,5 @@ inclusion: manual
 - 对用户的每个回答给出简短反馈，让用户知道信息已被记录
 - 如果用户提供了额外信息（如已有技术栈），主动纳入考量
 - 推荐时引用性能数据和成本数据作为支撑
+- 如果所有 AWS 托管向量存储都被筛除（任何步骤中），必须逐一说明每种服务不满足需求的原因，并加上"客户可以选择 AWS Marketplace 上的向量数据库，具体咨询 SSA 团队"
+- 最后给出结论时，前面加一句说以下推荐是根据您的输入进行的决策，如果有疑问或者具体问题，请联系SSA团队
