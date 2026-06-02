@@ -78,11 +78,39 @@ Based on existing data location and feature requirements:
 - Consumer-facing with tens of thousands of tenants requiring physical data isolation → Must choose S3 Vectors
 - Specific Agent framework binding → Filter based on framework support list
 
+### Step 3: Index Algorithm & Distance Metric Filtering (Veto)
+
+Ask the customer about vector index algorithm and distance metric requirements:
+- Index algorithm: HNSW / IVF / Flat (brute-force exact search)
+- Distance metric: L2 (Euclidean) / Cosine / Inner Product (Dot Product) / L1 / Hamming
+- If unsure, default recommendation is HNSW + Cosine (most universal combination)
+
+Index Algorithm × Distance Metric Support Matrix (veto basis):
+| Vector Store | HNSW+L2 | HNSW+Cosine | HNSW+IP | HNSW+L1 | HNSW+Hamming | IVF+L2 | IVF+Cosine | IVF+IP | IVF+Hamming | Flat+L2 | Flat+Cosine | Flat+IP |
+|---------|---------|-------------|---------|---------|-------------|--------|-----------|--------|------------|---------|------------|---------
+| Aurora PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| OpenSearch | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| DocumentDB | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| ElastiCache | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| MemoryDB | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Neptune Analytics | ✅(L2Sq) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+Filtering rules:
+- Check the table for the customer's required combination; services marked ❌ are eliminated
+- If customer is unsure, default to HNSW+Cosine → eliminates Neptune Analytics (doesn't support Cosine)
+- If customer explicitly needs IVF index → eliminates ElastiCache, MemoryDB, Neptune Analytics (don't support IVF)
+- If customer needs Hamming distance → only Aurora PostgreSQL (HNSW) and OpenSearch (HNSW+IVF) support it
+- Neptune Analytics only supports HNSW+L2Squared; any other combination is unsupported
+
+Notes:
+- S3 Vectors and AgentCore Memory are managed services where index algorithm and distance metric are determined internally; they are not in this matrix
+- This step is for veto only — used to eliminate unsupported services, not for positive recommendations
+
 ## Phase 2: Performance and Data Characteristics Selection
 
 Enter this phase when multiple candidates remain after Phase 1 filtering.
 
-### Step 3: Collect Data Characteristics
+### Step 4: Collect Data Characteristics
 
 Ask for the following information:
 - Vector dimensions (e.g., 384, 768, 1024, 1536)
@@ -90,7 +118,7 @@ Ask for the following information:
 - Total dataset size
 - Required Index Type and maximum dimensions
 
-### Step 4: Collect Performance Requirements
+### Step 5: Collect Performance Requirements
 
 Ask for the following information:
 - Query QPS requirements
@@ -167,7 +195,7 @@ When the customer's data volume or performance requirements exceed single-node c
 
 Enter this phase when multiple candidates remain after Phase 2 filtering.
 
-### Step 5: Collect Cost-Related Information
+### Step 6: Collect Cost-Related Information
 
 Ask for the following information:
 - Does the workload have significant peaks and valleys? (Consider Serverless)
@@ -233,6 +261,11 @@ After completing the three-phase evaluation, output a recommendation report cont
 - Key performance metric alignment
 - Estimated monthly cost range
 - Notes and suggestions
+
+
+If after all filtering steps no AWS managed vector store meets all customer requirements, output a "No Recommendation Report":
+- List the specific reason each managed vector store does not meet requirements
+- Suggest the customer consider vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, etc.). Please consult the SSA team for details.
 
 ## Interaction Flow Guide
 
@@ -328,3 +361,5 @@ If answer is 5 (Other):
 - Give brief feedback on each user response so they know their input has been recorded
 - If the user provides additional information (e.g., existing tech stack), proactively factor it into the evaluation
 - When making recommendations, cite performance data and cost data as supporting evidence
+- If all AWS managed vector stores are eliminated (at any step), you MUST list the specific reason each service does not meet requirements, and add: "The customer may consider vector database products on AWS Marketplace. Please consult the SSA team for details."
+- When presenting the final recommendation, preface it with: "The following recommendation is based on your inputs. For questions or specific concerns, please contact the SSA team."
