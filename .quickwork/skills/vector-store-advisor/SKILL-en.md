@@ -80,7 +80,43 @@ Veto/Override rules:
 - Customer uses LangChain → Recommend OpenSearch (first-class integration, Python+JS)
 - Customer uses LangGraph → Checkpoint: DynamoDB/AgentCore Memory; Vector retrieval: pair with LangChain using OpenSearch/Aurora
 
-### Step 3: Performance & Data Characteristics
+### Step 3: Index Algorithm & Distance Metric Filtering (Veto)
+- **Mode**: `agentic`
+- **Input**: Current candidate service list (from Step 1-2 filtering results)
+- **Output**: Eliminate services that don't support the customer's required index algorithm + distance metric combination
+- **Validate**: Customer's required index algorithm + distance metric combination is confirmed
+- **On failure**: Default to HNSW+Cosine (most common combination), continue filtering
+
+Ask the customer:
+> Does the customer have specific requirements for vector index algorithm and distance metric?
+> - Index algorithm: HNSW / IVF / Flat (brute-force exact search)
+> - Distance metric: L2 (Euclidean) / Cosine / Inner Product (Dot Product) / L1 / Hamming
+> - If unsure, default recommendation is **HNSW + Cosine** (most universal combination)
+
+Index Algorithm × Distance Metric Support Matrix (veto basis):
+| Vector Store | HNSW+L2 | HNSW+Cosine | HNSW+IP | HNSW+L1 | HNSW+Hamming | IVF+L2 | IVF+Cosine | IVF+IP | IVF+Hamming | Flat+L2 | Flat+Cosine | Flat+IP |
+|---------|---------|-------------|---------|---------|-------------|--------|-----------|--------|------------|---------|------------|---------|
+| Aurora PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| OpenSearch | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| DocumentDB | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| ElastiCache | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| MemoryDB | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Neptune Analytics | ✅(L2Sq) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+Reference: https://quip-amazon.com/plcVAN9Q6bV2 "6. TopK Distance Metric Types" section
+
+Filtering rules:
+- Check the table for the customer's required combination; services marked ❌ are eliminated
+- If customer is unsure, default to HNSW+Cosine → eliminates Neptune Analytics (doesn't support Cosine)
+- If customer explicitly needs IVF index → eliminates ElastiCache, MemoryDB, Neptune Analytics (don't support IVF)
+- If customer needs Hamming distance → only Aurora PostgreSQL (HNSW) and OpenSearch (HNSW+IVF) support it
+- Neptune Analytics only supports HNSW+L2Squared; any other combination is unsupported
+
+Notes:
+- S3 Vectors and AgentCore Memory are managed services where index algorithm and distance metric are determined internally; they are not in this matrix
+- This step is for veto only — used to eliminate unsupported services, not for positive recommendations
+
+### Step 4: Performance & Data Characteristics
 - **Mode**: `agentic`
 - **Input**: Candidate service list (if Phase 1 didn't determine a single recommendation)
 - **Output**: Further narrow candidates or confirm recommendation
@@ -116,7 +152,7 @@ Scalability:
 - ✅ Horizontal: ElastiCache (sharding), OpenSearch (sharding), S3 Vectors (multi-index)
 - ❌ Vertical only: Aurora PostgreSQL, MemoryDB, DocumentDB (scale up + read replicas), Neptune Analytics (increase MCUs)
 
-### Step 4: Cost Selection
+### Step 5: Cost Selection
 - **Mode**: `agentic`
 - **Input**: Enter when multiple candidates remain
 - **Output**: Final recommendation of 1-2 services
@@ -132,9 +168,11 @@ Cost Reference (768d, 1M rows, us-east-1):
 - Neptune Analytics: ~$350/month (pausable to $35/month)
 - S3 Vectors (10M vectors): ~$11/month
 
-### Step 5: Output Recommendation Report
+### Step 6: Output Recommendation Report
 - **Mode**: `agentic`
 - **Input**: All collected information
+- **Special case**: If after all filtering steps no AWS managed vector store meets all customer requirements, output a "No Recommendation Report" that lists the specific reason each managed vector store does not meet requirements, and suggest the customer consider vector database products on AWS Marketplace
+- **Fallback wording**: "Based on your requirements, none of the current AWS managed vector storage services fully match. We recommend the customer consider vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, etc.). Please consult the SSA team for details."
 - **Output**: Structured recommendation report
 - **Validate**: Report includes scenario summary, recommendation, rationale, cost estimate, notes
 
@@ -159,6 +197,32 @@ Notes
 - ___
 ```
 
+If no service meets requirements, use the following template:
+```
+🎯 AWS Vector Store Selection Report
+
+Customer Scenario Summary
+- Business scenario: ___
+- Data scale: ___d x ___ vectors
+- Performance requirements: QPS ___, Latency <___ms
+- Index algorithm + distance metric requirement: ___
+
+⚠️ No Fully Matching AWS Managed Vector Store
+
+Reasons each service does not meet requirements:
+- Aurora PostgreSQL: ___ (specific unmet condition)
+- OpenSearch: ___
+- DocumentDB: ___
+- ElastiCache: ___
+- MemoryDB: ___
+- Neptune Analytics: ___
+- S3 Vectors: ___
+- AgentCore Memory: ___
+
+Recommendation
+The customer may consider vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, etc.). Please consult the SSA team for details.
+```
+
 ## Lessons Learned
 
 ### Do
@@ -167,6 +231,7 @@ Notes
 - Give brief feedback on each user response
 - Skip remaining phases if a unique recommendation is already clear
 - Cite specific performance data and cost figures when recommending
+- If all AWS managed vector stores are eliminated (at any step), you MUST list the specific reason each service does not meet requirements, and add: "The customer may consider vector database products on AWS Marketplace. Please consult the SSA team for details."
 
 ### Don't
 - Don't ask multiple questions at once
