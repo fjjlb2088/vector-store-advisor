@@ -80,7 +80,43 @@ Agent 框架兼容性矩阵：
 - 客户用 LangChain → 首推 OpenSearch（first-class integration，Python+JS）
 - 客户用 LangGraph → checkpoint 用 DynamoDB/AgentCore Memory；向量检索推荐配合 LangChain 用 OpenSearch/Aurora
 
-### Step 3: 性能与数据特征选型
+### Step 3: 索引算法与距离度量筛选（一票否决）
+- **Mode**: `agentic`
+- **Input**: 当前候选服务列表（来自 Step 1-2 的筛选结果）
+- **Output**: 根据客户需要的索引算法+距离度量组合，排除不支持的服务
+- **Validate**: 确定了客户需要的索引算法+距离度量组合
+- **On failure**: 默认使用 HNSW+Cosine（最常见组合），继续筛选
+
+询问客户：
+> 请问客户对向量索引算法和距离度量有特定要求吗？
+> - 索引算法：HNSW / IVF / Flat（暴力精确搜索）
+> - 距离度量：L2 (Euclidean) / Cosine / Inner Product (Dot Product) / L1 / Hamming
+> - 如果不确定，默认推荐 **HNSW + Cosine**（最通用组合）
+
+索引算法×距离度量支持矩阵（一票否决依据）：
+| 向量存储 | HNSW+L2 | HNSW+Cosine | HNSW+IP | HNSW+L1 | HNSW+Hamming | IVF+L2 | IVF+Cosine | IVF+IP | IVF+Hamming | Flat+L2 | Flat+Cosine | Flat+IP |
+|---------|---------|-------------|---------|---------|-------------|--------|-----------|--------|------------|---------|------------|---------|
+| Aurora PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| OpenSearch | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| DocumentDB | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| ElastiCache | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| MemoryDB | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Neptune Analytics | ✅(L2Sq) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+参考来源：https://quip-amazon.com/plcVAN9Q6bV2 "6. TopK距离度量种类" 章节
+
+筛选规则：
+- 查表确认客户要求的组合，❌ 的服务直接排除
+- 如果客户不确定，默认使用 HNSW+Cosine → 排除 Neptune Analytics（不支持 Cosine）
+- 如果客户明确需要 IVF 索引 → 排除 ElastiCache、MemoryDB、Neptune Analytics（不支持 IVF）
+- 如果客户需要 Hamming 距离 → 仅 Aurora PostgreSQL（HNSW）和 OpenSearch（HNSW+IVF）支持
+- Neptune Analytics 仅支持 HNSW+L2Squared，任何其他组合均不支持
+
+注意：
+- S3 Vectors 和 AgentCore Memory 为托管服务，索引算法和距离度量由服务内部决定，不在此表范围
+- 此步骤为一票否决，仅用于排除不支持的服务，不用于正向推荐
+
+### Step 4: 性能与数据特征选型
 - **Mode**: `agentic`
 - **Input**: 候选服务列表（如果第一阶段未确定唯一推荐）
 - **Output**: 进一步缩小候选或确定推荐
@@ -116,7 +152,7 @@ Recall：
 - ✅ 横向扩展：ElastiCache（分片）、OpenSearch（分片）、S3 Vectors（多索引）
 - ❌ 仅纵向扩展：Aurora PostgreSQL、MemoryDB、DocumentDB（升机型+只读副本）、Neptune Analytics（增MCU）
 
-### Step 4: 成本选型
+### Step 5: 成本选型
 - **Mode**: `agentic`
 - **Input**: 仍有多个候选时进入
 - **Output**: 最终推荐1-2个服务
@@ -132,9 +168,11 @@ Recall：
 - Neptune Analytics: ~$350/月（可暂停至$35/月）
 - S3 Vectors（1000万向量）: ~$11/月
 
-### Step 5: 输出推荐报告
+### Step 6: 输出推荐报告
 - **Mode**: `agentic`
 - **Input**: 全部收集的信息
+- **特殊情况**: 如果经过所有步骤筛选后，没有任何 AWS 托管向量存储满足客户全部需求，则输出"无推荐报告"，需逐一列出每种托管向量存储不符合要求的具体原因，并建议客户考虑 AWS Marketplace 上的向量数据库方案
+- **Fallback 话术**: "根据您提供的需求组合，目前 AWS 托管向量存储服务中没有完全匹配的选项。建议客户可以考虑 AWS Marketplace 上的向量数据库产品（如 Pinecone、Milvus、Weaviate 等），具体请咨询 SSA 团队。"
 - **Output**: 结构化推荐报告
 - **Validate**: 报告包含场景摘要、推荐方案、理由、成本估算、注意事项
 
@@ -159,6 +197,32 @@ Recall：
 - ___
 ```
 
+如果无服务满足需求，使用以下模板：
+```
+🎯 AWS 向量存储选型推荐报告
+
+客户场景摘要
+- 业务场景：___
+- 数据规模：___维 x ___向量
+- 性能要求：QPS ___, 延迟 <___ms
+- 索引算法+距离度量要求：___
+
+⚠️ 无完全匹配的 AWS 托管向量存储
+
+各服务不符合原因：
+- Aurora PostgreSQL：___（不满足的具体条件）
+- OpenSearch：___
+- DocumentDB：___
+- ElastiCache：___
+- MemoryDB：___
+- Neptune Analytics：___
+- S3 Vectors：___
+- AgentCore Memory：___
+
+建议
+客户可以考虑 AWS Marketplace 上的向量数据库产品（如 Pinecone、Milvus、Weaviate 等），具体请咨询 SSA 团队。
+```
+
 ## Lessons Learned
 
 ### Do
@@ -166,6 +230,7 @@ Recall：
 - 对用户每个回答给出简短反馈
 - 如果某阶段已确定推荐，跳过后续阶段
 - 推荐时引用具体性能数据和成本数据
+- 如果所有 AWS 托管向量存储都被筛除（任何步骤中），必须逐一说明每种服务不满足需求的原因，并加上"客户可以选择 AWS Marketplace 上的向量数据库，具体咨询 SSA 团队"
 - 最后给出结论时，前面加一句说以下推荐是根据您的输入进行的决策，如果有疑问或者具体问题，请联系SSA团队
 
 ### Don't
