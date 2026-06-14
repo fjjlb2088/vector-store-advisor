@@ -112,11 +112,12 @@ Enter this phase when multiple candidates remain after Phase 1 filtering.
 
 ### Step 4: Collect Data Characteristics
 
-Ask for the following information:
-- Vector dimensions (e.g., 384, 768, 1024, 1536)
-- Vector count/row count (millions, tens of millions, hundreds of millions, billions)
-- Total dataset size
-- Required Index Type and maximum dimensions
+Ask the customer about their **current** dataset and performance needs:
+> Please provide the customer's **current** (not future projections) vector dataset and performance metrics:
+> - Vector dimensions (e.g., 768, 1024, 1536)
+> - Current vector count/row count (millions / tens of millions / hundreds of millions)
+> - Current QPS requirements, latency requirements (P99 millisecond-level / tens of ms / hundreds of ms)
+> - Current write TPS requirements
 
 ### Step 5: Collect Performance Requirements
 
@@ -193,14 +194,19 @@ When the customer's data volume or performance requirements exceed single-node c
 
 ## Phase 3: Cost Selection
 
+**NOTE: This is an independent phase. You must explicitly inform the user that they are entering the cost evaluation phase — do NOT transition naturally from the performance phase.**
+
 Enter this phase when multiple candidates remain after Phase 2 filtering.
 
 ### Step 6: Collect Cost-Related Information
 
-Ask for the following information:
-- Does the workload have significant peaks and valleys? (Consider Serverless)
-- Business model: Is it storage-dominant or compute/request-dominant?
-- Budget range
+Opening:
+> Now let's move to the cost evaluation phase. Based on the candidate services filtered in the previous steps, let's understand your budget and usage patterns.
+
+Ask:
+> 1. Does the workload have peak/valley patterns? (affects whether to choose pausable/Serverless options)
+> 2. Is the expected cost structure storage-dominant or compute-dominant?
+> 3. What is the approximate monthly budget range?
 
 ### Cost Characteristics Comparison:
 
@@ -253,6 +259,24 @@ Ask for the following information:
 **OpenSearch:**
 - HNSW memory usage (bytes) = 1.1 × (4 × d + 8 × m) × num_vectors × (number_of_replicas + 1)
 
+## Phase 4: Future Planning & Familiarity Assessment
+
+**NOTE: This step is a bonus factor, not a veto. Skip if user does not provide information.**
+
+### Step 7: Future Planning & Familiarity
+
+Ask:
+> Two final questions:
+> 1. **Future Planning**: Will the customer's data scale and performance needs grow significantly in the next 1-2 years? (affects whether horizontal scaling capability is needed)
+> 2. **Familiarity**: How experienced is the customer's team with the following AWS managed vector stores?
+>    - Aurora PostgreSQL / OpenSearch / DocumentDB / ElastiCache / MemoryDB / Neptune Analytics / S3 Vectors / AgentCore Memory
+>    - (Services the team has experience with can reduce migration and learning costs)
+
+Criteria:
+- If customer's data volume will grow from tens of millions to hundreds of millions → prefer services with horizontal scaling (OpenSearch/ElastiCache)
+- If customer's team is already familiar with a service (e.g., existing PostgreSQL operations experience) → prefer that service among candidates
+- This step is a bonus factor, not a veto
+
 ## Output Format
 
 After completing the three-phase evaluation, output a recommendation report containing:
@@ -262,10 +286,13 @@ After completing the three-phase evaluation, output a recommendation report cont
 - Estimated monthly cost range
 - Notes and suggestions
 
+If the recommendation includes OpenSearch, append at the end of the report:
+> 📌 OpenSearch Vector Search Best Practices Reference: https://github.com/norrishuang/opensearch-vector-search-skill
+
 
 If after all filtering steps no AWS managed vector store meets all customer requirements, output a "No Recommendation Report":
 - List the specific reason each managed vector store does not meet requirements
-- Suggest the customer consider vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, etc.). Please consult the SSA team for details.
+- Suggest the customer consider open-source vector databases or vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, Neo4j, etc.). For example: if the customer needs GraphRAG + Cosine distance metric, but Neptune Analytics only supports L2Squared, then Neptune Analytics cannot be selected — consider Neo4j or other open-source graph databases with vector retrieval capabilities. Please consult the SSA team for details.
 
 ## Interaction Flow Guide
 
@@ -361,5 +388,5 @@ If answer is 5 (Other):
 - Give brief feedback on each user response so they know their input has been recorded
 - If the user provides additional information (e.g., existing tech stack), proactively factor it into the evaluation
 - When making recommendations, cite performance data and cost data as supporting evidence
-- If all AWS managed vector stores are eliminated (at any step), you MUST list the specific reason each service does not meet requirements, and add: "The customer may consider vector database products on AWS Marketplace. Please consult the SSA team for details."
+- If all AWS managed vector stores are eliminated (at any step), you MUST list the specific reason each service does not meet requirements, and add: "The customer may consider open-source vector databases or vector database products on AWS Marketplace. Please consult the SSA team for details." The no-recommendation report should include specific examples of the conflict scenario (e.g., "needs GraphRAG + Cosine, but Neptune Analytics only supports L2Squared"), and recommend corresponding open-source alternatives.
 - When presenting the final recommendation, preface it with: "The following recommendation is based on your inputs. For questions or specific concerns, please contact the SSA team."
