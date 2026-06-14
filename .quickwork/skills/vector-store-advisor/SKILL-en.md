@@ -123,7 +123,12 @@ Notes:
 - **Validate**: User provides at least 2 of: dimensions, count, QPS, latency requirement
 - **On failure**: Use benchmark reference data to help user decide
 
-Collect: vector dimensions, count/rows, QPS requirement, latency requirement, write TPS, scalability needs
+Ask the customer about their **current** dataset and performance needs:
+> Please provide the customer's **current** (not future projections) vector dataset and performance metrics:
+> - Vector dimensions (e.g., 768, 1024, 1536)
+> - Current vector count/row count (millions / tens of millions / hundreds of millions)
+> - Current QPS requirements, latency requirements (P99 millisecond-level / tens of ms / hundreds of ms)
+> - Current write TPS requirements
 
 Performance Reference (Benchmark: Cohere-10M, 768d, HNSW m=16/ef_c=200, FP32, top-10):
 
@@ -153,13 +158,22 @@ Scalability:
 - ❌ Vertical only: Aurora PostgreSQL, MemoryDB, DocumentDB (scale up + read replicas), Neptune Analytics (increase MCUs)
 
 ### Step 5: Cost Selection
+
+**NOTE: This is an independent phase. You must explicitly inform the user that they are entering the cost evaluation phase — do NOT transition naturally from the performance phase.**
+
+Opening:
+> Now let's move to the cost evaluation phase. Based on the candidate services filtered in the previous steps, let's understand your budget and usage patterns.
+
 - **Mode**: `agentic`
 - **Input**: Enter when multiple candidates remain
 - **Output**: Final recommendation of 1-2 services
 - **Validate**: Clear recommendation with rationale and cost estimate
 - **On failure**: Present cost comparison table for user to decide
 
-Ask: peak/valley patterns, business model (whether cost is expected to be storage-heavy vs compute-heavy), budget range
+Ask:
+> 1. Does the workload have peak/valley patterns? (affects whether to choose pausable/Serverless options)
+> 2. Is the expected cost structure storage-dominant or compute-dominant?
+> 3. What is the approximate monthly budget range?
 
 Cost Reference (768d, 1M rows, us-east-1):
 - ElastiCache: ~$160/month
@@ -168,13 +182,35 @@ Cost Reference (768d, 1M rows, us-east-1):
 - Neptune Analytics: ~$350/month (pausable to $35/month)
 - S3 Vectors (10M vectors): ~$11/month
 
-### Step 6: Output Recommendation Report
+### Step 6: Future Planning & Familiarity Assessment
+- **Mode**: `agentic`
+- **Input**: Filtering results from the cost phase
+- **Output**: Confirm whether the final recommendation should consider future scaling, and whether the customer has learning cost preferences
+- **Validate**: User provided future planning and familiarity information
+- **On failure**: Skip this step, recommend based on current needs
+
+Ask:
+> Two final questions:
+> 1. **Future Planning**: Will the customer's data scale and performance needs grow significantly in the next 1-2 years? (affects whether horizontal scaling capability is needed)
+> 2. **Familiarity**: How experienced is the customer's team with the following AWS managed vector stores?
+>    - Aurora PostgreSQL / OpenSearch / DocumentDB / ElastiCache / MemoryDB / Neptune Analytics / S3 Vectors / AgentCore Memory
+>    - (Services the team has experience with can reduce migration and learning costs)
+
+Criteria:
+- If customer's data volume will grow from tens of millions to hundreds of millions → prefer services with horizontal scaling (OpenSearch/ElastiCache)
+- If customer's team is already familiar with a service (e.g., existing PostgreSQL operations experience) → prefer that service among candidates
+- This step is a bonus factor, not a veto
+
+### Step 7: Output Recommendation Report
 - **Mode**: `agentic`
 - **Input**: All collected information
 - **Special case**: If after all filtering steps no AWS managed vector store meets all customer requirements, output a "No Recommendation Report" that lists the specific reason each managed vector store does not meet requirements, and suggest the customer consider vector database products on AWS Marketplace
-- **Fallback wording**: "Based on your requirements, none of the current AWS managed vector storage services fully match. We recommend the customer consider vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, etc.). Please consult the SSA team for details."
+- **Fallback wording**: "Based on your requirements, none of the current AWS managed vector storage services fully match. We recommend the customer consider open-source vector databases or vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, Neo4j, etc.). For example: if the customer needs GraphRAG + Cosine distance metric, but Neptune Analytics only supports L2Squared, then Neptune Analytics cannot be selected — consider Neo4j or other open-source graph databases with vector retrieval capabilities. Please consult the SSA team for details."
 - **Output**: Structured recommendation report
 - **Validate**: Report includes scenario summary, recommendation, rationale, cost estimate, notes
+
+If the recommendation includes OpenSearch, append at the end of the report:
+> 📌 OpenSearch Vector Search Best Practices Reference: https://github.com/norrishuang/opensearch-vector-search-skill
 
 ## Output
 
@@ -220,7 +256,7 @@ Reasons each service does not meet requirements:
 - AgentCore Memory: ___
 
 Recommendation
-The customer may consider vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, etc.). Please consult the SSA team for details.
+The customer may consider open-source vector databases or vector database products on AWS Marketplace (e.g., Pinecone, Milvus, Weaviate, Neo4j, etc.). For example: if the customer needs GraphRAG + Cosine distance metric, but Neptune Analytics only supports L2Squared, then Neptune Analytics cannot be selected — consider Neo4j or other open-source graph databases with vector retrieval capabilities. Please consult the SSA team for details.
 ```
 
 ## Lessons Learned
@@ -231,7 +267,8 @@ The customer may consider vector database products on AWS Marketplace (e.g., Pin
 - Give brief feedback on each user response
 - Skip remaining phases if a unique recommendation is already clear
 - Cite specific performance data and cost figures when recommending
-- If all AWS managed vector stores are eliminated (at any step), you MUST list the specific reason each service does not meet requirements, and add: "The customer may consider vector database products on AWS Marketplace. Please consult the SSA team for details."
+- If all AWS managed vector stores are eliminated (at any step), you MUST list the specific reason each service does not meet requirements, and add: "The customer may consider open-source vector databases or vector database products on AWS Marketplace. Please consult the SSA team for details."
+- The no-recommendation report should include specific examples of the conflict scenario (e.g., "needs GraphRAG + Cosine, but Neptune Analytics only supports L2Squared"), and recommend corresponding open-source alternatives
 
 ### Don't
 - Don't ask multiple questions at once
