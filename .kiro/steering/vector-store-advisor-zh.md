@@ -119,7 +119,14 @@ Agent 框架兼容性矩阵：
 - 当前延迟要求（P99 毫秒级/十毫秒级/百毫秒级）
 - 当前写入 TPS 需求
 
-性能参考数据（Benchmark: Cohere-10M, 768维, HNSW m=16/ef_c=200, FP32, top-10）：
+询问以下信息：
+- 向量维度、当前向量数量/行数、当前 QPS 需求、当前延迟要求、当前写入 TPS
+- HNSW 相关参数（如客户能提供）：m（默认16）、ef_construction（默认200）、ef_search（默认100）、topK（默认10）、并发数（默认100）
+- 如果客户无法给出 HNSW 参数，按默认值处理，直接使用下方性能参考数据判断
+- 如果客户数据集规模较大（亿级以上），OpenSearch 因支持分片横向扩展，相对更适合大数据集场景
+
+性能参考数据（Benchmark: Cohere-10M, 768维, HNSW m=16/ef_c=200, FP32, topK=10, 并发50-100线程）
+注意：以下结果基于 topK=10, m=16, ef_construction=200, ef_search=40-100。客户参数不同时实际性能有差异：topK↑延迟↑、ef_search↑recall↑但延迟↑、m↑索引更大但recall更高：
 
 读性能：
 | 服务 | 等级 | 高并发QPS | 单线程P99 | 高并发P99 |
