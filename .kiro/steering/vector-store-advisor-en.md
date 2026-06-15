@@ -119,7 +119,14 @@ This phase collects (ask together):
 - Current latency requirements (P99 millisecond / tens of ms / hundreds of ms)
 - Current write TPS requirements
 
-Performance Reference Data (Benchmark: Cohere-10M, 768d, HNSW m=16/ef_c=200, FP32, top-10):
+Collect the following information:
+- Vector dimensions, current vector count/rows, current QPS, current latency requirements, current write TPS
+- HNSW-related parameters (if customer can provide): m (default 16), ef_construction (default 200), ef_search (default 100), topK (default 10), concurrency (default 100)
+- If customer cannot provide HNSW parameters, use defaults and judge directly using performance reference data below
+- If customer dataset is large (hundreds of millions+), OpenSearch is relatively better suited due to sharding-based horizontal scaling
+
+Performance Reference Data (Benchmark: Cohere-10M, 768d, HNSW m=16/ef_c=200, FP32, topK=10, concurrency 50-100 threads)
+Note: Results below are based on topK=10, m=16, ef_construction=200, ef_search=40-100. If customer parameters differ, actual performance will vary: topK↑ latency↑, ef_search↑ recall↑ but latency↑, m↑ larger index but higher recall:
 
 Read Performance:
 | Service | Tier | High-concurrency QPS | Single-thread P99 | High-concurrency P99 |
