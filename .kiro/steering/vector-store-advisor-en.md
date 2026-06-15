@@ -62,8 +62,7 @@ Framework-supported vector stores are constantly evolving. Reference docs:
 
 #### Index Algorithm × Distance Metric Veto Matrix
 
-| Vector Store | HNSW+L2 | HNSW+Cosine | HNSW+IP | HNSW+L1 | HNSW+Hamming | IVF+L2 | IVF+Cosine | IVF+IP | IVF+Hamming | Flat+L2 | Flat+Cosine | Flat+IP | | Aurora PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | | OpenSearch | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | DocumentDB | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | | ElastiCache | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | | MemoryDB | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | | Neptune Analytics | ✅(L2Sq) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-Reference: [https://quip-amazon.com/plcVAN9Q6bV2](https://quip-amazon.com/plcVAN9Q6bV2) Section "6. TopK距离度量种类"
+| Vector Store | HNSW+L2 | HNSW+Cosine | HNSW+IP | HNSW+L1 | HNSW+Hamming | IVF+L2 | IVF+Cosine | IVF+IP | IVF+Hamming | Flat+L2 | Flat+Cosine | Flat+IP | | Aurora PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | | OpenSearch | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | DocumentDB | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | | ElastiCache | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | | MemoryDB | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | | Neptune Analytics | ✅(L2Sq) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | Reference: [https://quip-amazon.com/plcVAN9Q6bV2](https://quip-amazon.com/plcVAN9Q6bV2) Section "6. TopK距离度量种类"
 
 #### Veto / Decisive Rules
 
@@ -96,19 +95,15 @@ Clear opening:
 - Concurrent read/write count: default 100 concurrent
 If the customer cannot provide HNSW parameters, use defaults (m=16, ef_construction=200, ef_search=100, topK=10, concurrency=100) and judge directly using the performance reference data below.
 If the customer's dataset is large (hundreds of millions+) and requires horizontal scalability, OpenSearch is relatively better suited for large dataset scenarios due to its sharding-based horizontal scaling capability.
-
 Performance judgment strategy:
-1. **Exact match first** — If the customer's ef_search, concurrency, and topK parameter combination has a corresponding data row in the benchmark results (https://quip-amazon.com/PQPNABa3YEUP), directly cite that row's QPS, P99, and Recall data as the recommendation basis
-2. **Tier-based inference when no exact match** — If the customer's parameters don't exactly match benchmark conditions (e.g., ef_search=150, topK=50), use each service's performance tier (A/B/C/D) for relative judgment, combined with known rules:
-   - ef_search↑ → recall↑ but QPS↓ latency↑
-   - topK↑ → latency↑
-   - concurrency↑ → QPS↑ (plateaus after inflection point), P99↑
-3. **Reference source** — Full benchmark data: https://quip-amazon.com/PQPNABa3YEUP (each service has test data at ef_search=40/60/80/100, threads=1/10/50/100)
-
+1. — If the customer's ef_search, concurrency, and topK parameter combination has a corresponding data row in the benchmark results ( [https://quip-amazon.com/PQPNABa3YEUP](https://quip-amazon.com/PQPNABa3YEUP) ), directly cite that row's QPS, P99, and Recall data as the recommendation basis
+2. — If the customer's parameters don't exactly match benchmark conditions (e.g., ef_search=150, topK=50), use each service's performance tier (A/B/C/D) for relative judgment, combined with known rules:
+  - ef_search↑ → recall↑ but QPS↓ latency↑
+  - topK↑ → latency↑
+  - concurrency↑ → QPS↑ (plateaus after inflection point), P99↑
+3. — Full benchmark data: [https://quip-amazon.com/PQPNABa3YEUP](https://quip-amazon.com/PQPNABa3YEUP) (each service has test data at ef_search=40/60/80/100, threads=1/10/50/100)
 Performance Reference Data (Benchmark: Cohere-10M, 768d, HNSW m=16/ef_c=200, FP32, topK=10, concurrency 50-100 threads):
-> Note: The test results below are based on topK=10, m=16, ef_construction=200, ef_search ranging 40-100. If the customer's parameters differ (e.g., larger topK or higher ef_search), actual performance will vary — General rules: topK↑ latency↑, ef_search↑ recall↑ but latency↑, m↑ larger index but higher recall.
 Read Performance (default conditions: ef_search=100, 100 threads, topK=10): | Service | Tier | QPS(100T) | Single-thread P99 | High-concurrency P99(100T) | Recall | | Aurora PostgreSQL | A-tier | 5,868 | 4.89ms | 39.9ms | 96.27% | | MemoryDB | A-tier | 6,523 | 2.56ms | 72.97ms | 94.57% | | DocumentDB | B-tier | 5,337 | 3.65ms | 40.53ms | 96.39% | | OpenSearch | C-tier | 3,409 | 6.81ms | 70.1ms | 96.4% | | Neptune Analytics | D-tier | 303 | 23.69ms | 598ms | 80.2%(fixed) | | S3 Vectors | D-tier | 100+ per index | 50-100ms | - | N/A | | AgentCore Memory | C-tier | 30 TPS | ~200ms | - | N/A | | ElastiCache | A-tier | 10k+ | 0.8-3.9ms | - | ~99% |
-Recall (included in table above; range reference below):
 - ef_search=100 (default) Recall: Aurora 96.3%, OpenSearch 96.5%, DocumentDB 96.4%, MemoryDB 94.6%, Neptune 80.2% (fixed, not tunable)
 - ef_search=40 Recall (lower): Aurora 91.3%, OpenSearch 89.2%, DocumentDB 91.7%, MemoryDB 88.5%
 
